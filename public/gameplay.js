@@ -8,7 +8,7 @@ var bugArray = []
 var smooshArray = []
 
 var score = 0
-var health = 2
+var health = 10
 
 var game_paused = false
 var window_focused = true
@@ -26,6 +26,27 @@ for(var i = 0; i < playAgainButtons.length; i++){
         location.reload()
     })
 }
+
+//render picnic food
+var sandwich = new Image()
+sandwich.src = "./images/sub_sandwich_partial.png"
+var pie = new Image()
+pie.src = "./images/pie.png"
+var watermelon = new Image()
+watermelon.src = "./images/watermelon.png"
+var blanket = new Image()
+blanket.src = "./images/plaid.jpg"
+
+function drawPicnic(){
+    var w = canvas.width/6 - 40
+    var h = canvas.height - 100
+
+    c.drawImage(blanket, 0, h, canvas.width, blanket.height)
+    c.drawImage(sandwich, 0, h + 20, sandwich.width * 1, sandwich.height * 1)
+    c.drawImage(watermelon, w*2.5, h, watermelon.width * 1.75, watermelon.height * 1.75)
+    c.drawImage(pie, w*5, h, pie.width * 1.75, pie.height * 1.75)
+}
+  
 
 //draws score in top right
 
@@ -168,7 +189,6 @@ class Bug {
     }
     // creates a new smoosh object and pushes it into the main smoosh array
     smooshBug(){
-      console.log("==smooshBug called. Type: ", this.type);
       if (!(game_paused)) {
           switch(this.type){
             case "Spider":
@@ -258,9 +278,6 @@ function animSmoosh(){
             smooshArray[i].drawSmoosh()
             if(smooshArray[i].framesDrawn > smooshArray[i].animSpeed){
                 smooshArray[i].sX += smooshArray[i].sX_multiplier
-                if(smooshArray[i].sX > (smooshArray[i].sX_multiplier * (smooshArray[i].totalFrames - 1))){
-                    console.log((smooshArray[i].sX_multiplier * (smooshArray[i].totalFrames - 1)))
-                }
                 smooshArray[i].framesDrawn = 0
             }
         }
@@ -270,6 +287,7 @@ function animSmoosh(){
 // the main animation function
 function animate(){
     c.clearRect(0, 0, canvas.width, canvas.height)
+    drawPicnic()
     moveBugs()
     animSmoosh()
     drawHealth()
@@ -289,7 +307,6 @@ document.addEventListener('click', onClickBug)
 
 //Main click event function. Calls isPointValid to check whether click hits a bug, and resets spawn interval if score hits a certain thershold
 function onClickBug(event){
-    console.log(event.x + ", " + event.y)
     for(var i = 0; i < bugArray.length; i++){
         if(isPointValid(bugArray[i], event.x, event.y)){
             // createSmoosh(bugArray[i].x, bugArray[i].y)
@@ -299,7 +316,12 @@ function onClickBug(event){
         }
     }
     if((score % 100 === 0 && score !== 0) && health > 0){
-        spawnInterval -= 50
+        if (spawnInterval > 150) {
+            spawnInterval *= .9
+        } else {
+            spawnInterval = 150
+        }
+        console.log("SPAWN INTERVAL: ", spawnInterval)
         clearInterval(interval)
         interval = setInterval(createBug, spawnInterval)
     }
@@ -339,38 +361,25 @@ var check_focus_interval = setInterval(pause_if_unfocused, 500)
 
 /*-----------Score / gameover handling-----------*/
 function gameOver(){
-    var placeNum = 0;
-
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
+    var top_10_request = new XMLHttpRequest()
+    top_10_request.onreadystatechange = function() {
         if (this.readyState == 4 && this.status == 200) {
             //grab scoreData from JSON file and check if user made it
             //into the leaderboard
-            scoreData = JSON.parse(this.responseText);
-            for (var i = 1; i <= Object.keys(scoreData).length; i++) {
-                if(scoreData[i].score < score){
-                    console.log('PlaceNum: ' + placeNum)
-                    placeNum = i;
-                    console.log('PlaceNum: ' + placeNum)
-                    console.log('|---made ' + i + ' place!')
-                    break;
-                }
-            }
-
-            console.log('PlaceNum: ' + placeNum)
-            //call gameover modal based on if they made leaderboard or not
-            if(placeNum > 0){
-                madeHighScore(placeNum)
+            var is_top_10 = this.responseText
+            if(is_top_10 == "true"){
+                madeHighScore()
             } else{
                 noHighScore()
             }
         }
     };
-    xhttp.open("GET", "/scores", true);
-    xhttp.send();
+    top_10_request.open("POST", "/istop", true)
+    top_10_request.setRequestHeader('Content-Type', 'application/json')
+    top_10_request.send(JSON.stringify({score: score}))
 }
 
-function madeHighScore(placeNum){
+function madeHighScore(){
     console.log("Inside madeHighScore")
     document.getElementById('win-modal').classList.remove('hidden')
     document.getElementById('modal-backdrop').classList.remove('hidden')
